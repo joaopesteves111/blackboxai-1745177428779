@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Dashboard - Gym</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <header class="bg-blue-600 text-white p-4 flex justify-between items-center">
+    <h1 class="text-xl font-semibold">Admin Dashboard</h1>
+    <button id="logoutBtn" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded">Logout</button>
+  </header>
+
+  <main class="p-6 max-w-4xl mx-auto">
+    <section class="mb-8">
+      <h2 class="text-lg font-semibold mb-4">Create Student</h2>
+      <form id="createStudentForm" class="space-y-4 max-w-md">
+        <div>
+          <label for="studentEmail" class="block text-gray-700 font-medium mb-1">Student Email</label>
+          <input type="email" id="studentEmail" required class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label for="studentPassword" class="block text-gray-700 font-medium mb-1">Password</label>
+          <input type="password" id="studentPassword" required class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">Create Student</button>
+      </form>
+      <p id="createStudentMessage" class="mt-2 text-sm"></p>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-semibold mb-4">Assign Workout</h2>
+      <form id="assignWorkoutForm" class="space-y-4 max-w-md">
+        <div>
+          <label for="selectStudent" class="block text-gray-700 font-medium mb-1">Select Student</label>
+          <select id="selectStudent" required class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">-- Select Student --</option>
+          </select>
+        </div>
+        <div>
+          <label for="workoutText" class="block text-gray-700 font-medium mb-1">Workout Description</label>
+          <textarea id="workoutText" rows="3" required class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+        </div>
+        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition">Assign Workout</button>
+      </form>
+      <p id="assignWorkoutMessage" class="mt-2 text-sm"></p>
+    </section>
+
+    <section class="mt-10">
+      <h2 class="text-lg font-semibold mb-4">Students and Workouts</h2>
+      <div id="studentsList" class="space-y-4"></div>
+    </section>
+  </main>
+
+  <script>
+    const token = localStorage.getItem('token');
+    const role = localStorage.getItem('role');
+    if (!token || role !== 'admin') {
+      window.location.href = 'index.html';
+    }
+
+    const logoutBtn = document.getElementById('logoutBtn');
+    logoutBtn.addEventListener('click', () => {
+      localStorage.clear();
+      window.location.href = 'index.html';
+    });
+
+    const createStudentForm = document.getElementById('createStudentForm');
+    const createStudentMessage = document.getElementById('createStudentMessage');
+    const assignWorkoutForm = document.getElementById('assignWorkoutForm');
+    const assignWorkoutMessage = document.getElementById('assignWorkoutMessage');
+    const selectStudent = document.getElementById('selectStudent');
+    const studentsList = document.getElementById('studentsList');
+
+    async function fetchStudents() {
+      // Since we don't have an API to get all students, we will simulate by filtering users from backend
+      // For demo, we will fetch all users from a new endpoint (to be created)
+      try {
+        const response = await fetch('http://localhost:3000/api/students', {
+          headers: { Authorization: token },
+        });
+        const data = await response.json();
+        if (data.success) {
+          populateStudents(data.students);
+        } else {
+          studentsList.innerHTML = '<p class="text-red-600">Failed to load students.</p>';
+        }
+      } catch (error) {
+        studentsList.innerHTML = '<p class="text-red-600">Error loading students.</p>';
+      }
+    }
+
+    function populateStudents(students) {
+      selectStudent.innerHTML = '<option value="">-- Select Student --</option>';
+      studentsList.innerHTML = '';
+      students.forEach((student) => {
+        selectStudent.innerHTML += `<option value="${student.id}">${student.email}</option>`;
+        const workoutsHtml = student.workouts && student.workouts.length > 0
+          ? '<ul class="list-disc list-inside">' + student.workouts.map(w => `<li>${w}</li>`).join('') + '</ul>'
+          : '<p class="text-gray-600 italic">No workouts assigned</p>';
+        studentsList.innerHTML += `
+          <div class="bg-white p-4 rounded shadow">
+            <h3 class="font-semibold">${student.email}</h3>
+            <div>${workoutsHtml}</div>
+          </div>
+        `;
+      });
+    }
+
+    createStudentForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      createStudentMessage.textContent = '';
+      const email = document.getElementById('studentEmail').value.trim();
+      const password = document.getElementById('studentPassword').value.trim();
+      try {
+        const response = await fetch('http://localhost:3000/api/students', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: token },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await response.json();
+        if (data.success) {
+          createStudentMessage.textContent = 'Student created successfully.';
+          createStudentMessage.className = 'mt-2 text-green-600';
+          fetchStudents();
+          createStudentForm.reset();
+        } else {
+          createStudentMessage.textContent = data.message || 'Failed to create student.';
+          createStudentMessage.className = 'mt-2 text-red-600';
+        }
+      } catch (error) {
+        createStudentMessage.textContent = 'Error creating student.';
+        createStudentMessage.className = 'mt-2 text-red-600';
+      }
+    });
+
+    assignWorkoutForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      assignWorkoutMessage.textContent = '';
+      const studentId = selectStudent.value;
+      const workout = document.getElementById('workoutText').value.trim();
+      if (!studentId) {
+        assignWorkoutMessage.textContent = 'Please select a student.';
+        assignWorkoutMessage.className = 'mt-2 text-red-600';
+        return;
+      }
+      try {
+        const response = await fetch(`http://localhost:3000/api/students/${studentId}/workouts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: token },
+          body: JSON.stringify({ workout }),
+        });
+        const data = await response.json();
+        if (data.success) {
+          assignWorkoutMessage.textContent = 'Workout assigned successfully.';
+          assignWorkoutMessage.className = 'mt-2 text-green-600';
+          fetchStudents();
+          assignWorkoutForm.reset();
+        } else {
+          assignWorkoutMessage.textContent = data.message || 'Failed to assign workout.';
+          assignWorkoutMessage.className = 'mt-2 text-red-600';
+        }
+      } catch (error) {
+        assignWorkoutMessage.textContent = 'Error assigning workout.';
+        assignWorkoutMessage.className = 'mt-2 text-red-600';
+      }
+    });
+
+    fetchStudents();
+  </script>
+</body>
+</html>
